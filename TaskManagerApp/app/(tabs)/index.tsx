@@ -1,10 +1,21 @@
-// app/index.tsx
-import { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+} from 'react-native';
 
-export default function HomeScreen() {
+type Task = { id: string; text: string; completed: boolean };
+
+export default function App() {
+  const [screen, setScreen] = useState<'login' | 'tasks' | 'removed' | 'completed'>('login');
   const [task, setTask] = useState('');
-  const [tasks, setTasks] = useState<{ id: string; text: string; completed: boolean }[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [removedTasks, setRemovedTasks] = useState<Task[]>([]);
 
   const addTask = () => {
     if (!task.trim()) return;
@@ -13,30 +24,63 @@ export default function HomeScreen() {
   };
 
   const toggleTask = (id: string) => {
-    setTasks(tasks.map(t => (t.id === id ? { ...t, completed: !t.completed } : t)));
+    setTasks(prev =>
+      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
   };
 
   const removeTask = (id: string) => {
-    setTasks(tasks.filter(t => t.id !== id));
+    const toRemove = tasks.find(t => t.id === id);
+    if (toRemove) {
+      setRemovedTasks([...removedTasks, toRemove]);
+      setTasks(tasks.filter(t => t.id !== id));
+    }
   };
 
-  const renderItem = ({ item }: { item: typeof tasks[0] }) => (
-    <View style={styles.taskItem}>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.taskText, item.completed && styles.completed]}>
-          {item.text}
-        </Text>
+ 
+  if (screen === 'login') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Welcome</Text>
+        <Button title="Sign In" onPress={() => setScreen('tasks')} />
       </View>
-      {!item.completed && (
-        <TouchableOpacity onPress={() => toggleTask(item.id)} style={styles.actionButton}>
-          <Text style={styles.completeButton}>✅</Text>
-        </TouchableOpacity>
-      )}
-      <TouchableOpacity onPress={() => removeTask(item.id)} style={styles.actionButton}>
-        <Text style={styles.deleteButton}>❌</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
+  }
+
+  if (screen === 'removed') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Removed Tasks</Text>
+        <FlatList
+          data={removedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Text style={styles.taskText}>{item.text}</Text>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>No removed tasks.</Text>}
+        />
+        <Button title="Back to Tasks" onPress={() => setScreen('tasks')} />
+      </View>
+    );
+  }
+
+  if (screen === 'completed') {
+    const completedTasks = tasks.filter(t => t.completed);
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Completed Tasks</Text>
+        <FlatList
+          data={completedTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Text style={[styles.taskText, styles.completed]}>{item.text}</Text>
+          )}
+          ListEmptyComponent={<Text style={styles.emptyText}>No completed tasks.</Text>}
+        />
+        <Button title="Back to Tasks" onPress={() => setScreen('tasks')} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -55,12 +99,31 @@ export default function HomeScreen() {
       <FlatList
         data={tasks}
         keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        renderItem={({ item }) => (
+          <View style={styles.taskItem}>
+            <Text style={[styles.taskText, item.completed && styles.completed]}>
+              {item.text}
+            </Text>
+            <View style={styles.buttonGroup}>
+              <TouchableOpacity onPress={() => toggleTask(item.id)} style={styles.actionButton}>
+                <Text style={styles.completeText}>✅</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => removeTask(item.id)} style={styles.actionButton}>
+                <Text style={styles.deleteButton}>❌</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
         ListEmptyComponent={<Text style={styles.emptyText}>No tasks yet!</Text>}
       />
+      <View style={styles.buttonRow}>
+        <Button title="View Completed" onPress={() => setScreen('completed')} />
+        <Button title="View Removed" onPress={() => setScreen('removed')} />
+      </View>
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
@@ -71,9 +134,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    marginBottom: 20,
     fontWeight: 'bold',
     textAlign: 'center',
+    marginBottom: 20,
   },
   inputRow: {
     flexDirection: 'row',
@@ -81,10 +144,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    borderColor: '#aaa',
+    borderColor: '#ccc',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    height: 40,
+    padding: 10,
     borderRadius: 5,
   },
   addButton: {
@@ -100,7 +162,6 @@ const styles = StyleSheet.create({
   },
   taskItem: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#f2f2f2',
     padding: 12,
@@ -109,27 +170,37 @@ const styles = StyleSheet.create({
   },
   taskText: {
     fontSize: 16,
+    flex: 1,
   },
   completed: {
     textDecorationLine: 'line-through',
     color: '#888',
   },
-  actionButton: {
-    marginLeft: 10,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-  },
-  completeButton: {
-    fontSize: 18,
-    color: 'green',
-  },
   deleteButton: {
     fontSize: 18,
     color: 'red',
   },
+  completeText: {
+    fontSize: 18,
+    color: 'green',
+    marginRight: 10,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
   emptyText: {
     textAlign: 'center',
-    color: '#666',
     marginTop: 50,
+    color: '#666',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  actionButton: {
+    paddingHorizontal: 5,
   },
 });
